@@ -2,23 +2,34 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import requests
 import os
+from dotenv import load_dotenv
+
+# Load local .env if exists (for testing locally)
+load_dotenv()
 
 app = Flask(__name__)
-CORS(app)
+CORS(app)  # allow all origins
 
-PEXELS_API_KEY = os.getenv("PEXELS_API_KEY")  # store in .env or set in environment
+# Get Pexels API key from environment
+PEXELS_API_KEY = os.getenv("PEXELS_API_KEY")
+
+if not PEXELS_API_KEY:
+    raise ValueError("PEXELS_API_KEY environment variable not set")
 
 @app.route("/image", methods=["POST"])
 def get_image():
     data = request.json
     query = data.get("prompt")
-    
+
+    if not query:
+        return jsonify({"image": None, "message": "No prompt provided"}), 400
+
     headers = {"Authorization": PEXELS_API_KEY}
     response = requests.get(
         f"https://api.pexels.com/v1/search?query={query}&per_page=1",
         headers=headers
     )
-    
+
     if response.status_code == 200:
         results = response.json()
         if results["photos"]:
@@ -30,4 +41,6 @@ def get_image():
         return jsonify({"image": None, "message": "API request failed"})
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    # Railway sets PORT automatically; default to 5000 for local testing
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=True)
